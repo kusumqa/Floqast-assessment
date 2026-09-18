@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>FinTechCo Mock App</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/config.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="brand">FinTechCo</div>
+    <div class="card">
+      <h1 data-testid="page-title">Welcome</h1>
+      <p class="subtitle">A minimal mock frontend used to exercise the User and Transaction APIs end to end.</p>
+      <div id="session-bar" class="session-bar" style="display:none"></div>
+      <button id="go-register" data-testid="go-register-button">Create an account</button>
+      <button id="go-transactions" data-testid="go-transactions-button" class="secondary">Go to transactions</button>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    const session = getSession();
+    if (session) {
+      const bar = document.getElementById('session-bar');
+      bar.style.display = 'flex';
+      renderSessionBar('session-bar');
+    }
+    document.getElementById('go-register').addEventListener('click', () => (window.location.href = 'register.html'));
+    document.getElementById('go-transactions').addEventListener('click', () => (window.location.href = 'transactions.html'));
+  </script>
+</body>
+</html>

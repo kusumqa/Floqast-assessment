@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Transactions - FinTechCo</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/config.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="brand">FinTechCo</div>
+
+    <div id="session-bar" class="session-bar"></div>
+
+    <div class="card" id="login-card" style="display:none">
+      <h1 data-testid="login-page-title">Sign in</h1>
+      <p class="subtitle">No account session found. Paste the credentials returned at registration (userId + apiToken), or <a href="register.html">create an account</a>.</p>
+      <form id="login-form" novalidate>
+        <label for="userId">User ID</label>
+        <input id="userId" data-testid="login-userid-input" type="text" />
+        <label for="apiToken">API token</label>
+        <input id="apiToken" data-testid="login-token-input" type="text" />
+        <button type="submit" data-testid="login-submit">Sign in</button>
+      </form>
+      <div class="banner" id="login-banner" data-testid="login-banner"></div>
+    </div>
+
+    <div class="card" id="transaction-card" style="display:none">
+      <h1 data-testid="page-title">New transaction</h1>
+      <p class="subtitle">Calls <code>POST /api/transactions</code>.</p>
+
+      <form id="transaction-form" novalidate>
+        <label for="amount">Amount (USD)</label>
+        <input id="amount" type="number" step="0.01" data-testid="amount-input" />
+        <div class="field-error" id="amount-error" data-testid="amount-error"></div>
+
+        <label for="type">Type</label>
+        <select id="type" data-testid="type-select">
+          <option value="deposit">Deposit</option>
+          <option value="withdrawal">Withdrawal</option>
+          <option value="transfer">Transfer</option>
+        </select>
+
+        <div id="recipient-field" style="display:none">
+          <label for="recipientId">Recipient user ID</label>
+          <input id="recipientId" type="text" data-testid="recipient-input" />
+          <div class="field-error" id="recipient-error" data-testid="recipient-error"></div>
+        </div>
+
+        <button type="submit" id="submit-button" data-testid="transaction-submit">Submit transaction</button>
+      </form>
+
+      <div class="banner" id="form-banner" data-testid="form-banner"></div>
+
+      <h2 style="font-size:1rem;margin-top:24px;">Recent transactions</h2>
+      <table data-testid="transactions-table">
+        <thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Created</th></tr></thead>
+        <tbody id="transactions-body" data-testid="transactions-body"></tbody>
+      </table>
+      <p id="empty-state" data-testid="transactions-empty" style="display:none;color:var(--color-muted);font-size:0.85rem;">No transactions yet.</p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    const session = getSession();
+    renderSessionBar('session-bar');
+
+    const loginCard = document.getElementById('login-card');
+    const txCard = document.getElementById('transaction-card');
+
+    if (!session) {
+      loginCard.style.display = 'block';
+    } else {
+      txCard.style.display = 'block';
+      loadTransactions();
+    }
+
+    document.getElementById('login-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const userId = document.getElementById('userId').value.trim();
+      const apiToken = document.getElementById('apiToken').value.trim();
+      const banner = document.getElementById('login-banner');
+      banner.classList.remove('visible', 'error', 'success');
+
+      const { ok, status, data } = await apiRequest(`/api/users/${encodeURIComponent(userId)}`, { token: apiToken });
+      if (!ok) {
+        banner.textContent = `${flattenErrorMessage(data)} (HTTP ${status})`;
+        banner.classList.add('visible', 'error');
+        return;
+      }
+      saveSession({ userId: data.id, name: data.name, email: data.email, accountType: data.accountType, apiToken });
+      window.location.reload();
+    });
+
+    const typeSelect = document.getElementById('type');
+    typeSelect?.addEventListener('change', () => {
+      document.getElementById('recipient-field').style.display = typeSelect.value === 'transfer' ? 'block' : 'none';
+    });
+
+    async function loadTransactions() {
+      const current = getSession();
+      const { ok, data } = await apiRequest(`/api/transactions/${encodeURIComponent(current.userId)}`, { token: current.apiToken });
+      const tbody = document.getElementById('transactions-body');
+      const emptyState = document.getElementById('empty-state');
+      tbody.innerHTML = '';
+      if (!ok || !Array.isArray(data) || data.length === 0) {
+        emptyState.style.display = 'block';
+        return;
+      }
+      emptyState.style.display = 'none';
+      data
+        .slice()
+        .reverse()
+        .forEach((tx) => {
+          const row = document.createElement('tr');
+          row.setAttribute('data-testid', 'transaction-row');
+          row.innerHTML = `
+            <td>${tx.type}</td>
+            <td>$${Number(tx.amount).toFixed(2)}</td>
+            <td><span class="badge ${tx.status}">${tx.status}</span></td>
+            <td>${new Date(tx.createdAt).toLocaleString()}</td>
+          `;
+          tbody.appendChild(row);
+        });
+    }
+
+    document.getElementById('transaction-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const amountError = document.getElementById('amount-error');
+      const recipientError = document.getElementById('recipient-error');
+      const banner = document.getElementById('form-banner');
+      [amountError, recipientError, banner].forEach((el) => {
+        el.classList.remove('visible', 'error', 'success');
+        el.textContent = '';
+      });
+
+      const amountRaw = document.getElementById('amount').value;
+      const amount = parseFloat(amountRaw);
+      const type = document.getElementById('type').value;
+      const recipientId = document.getElementById('recipientId').value.trim();
+
+      let hasClientError = false;
+      if (!amountRaw || Number.isNaN(amount) || amount <= 0) {
+        amountError.textContent = 'Enter an amount greater than 0.';
+        amountError.classList.add('visible');
+        hasClientError = true;
+      }
+      if (type === 'transfer' && !recipientId) {
+        recipientError.textContent = 'Recipient user ID is required for transfers.';
+        recipientError.classList.add('visible');
+        hasClientError = true;
+      }
+      if (hasClientError) return;
+
+      const current = getSession();
+      const body = { userId: current.userId, amount, type, ...(type === 'transfer' ? { recipientId } : {}) };
+
+      const submitButton = document.getElementById('submit-button');
+      submitButton.disabled = true;
+      submitButton.textContent = 'Submitting…';
+
+      const { ok, status, data } = await apiRequest('/api/transactions', { method: 'POST', body, token: current.apiToken });
+
+      submitButton.disabled = false;
+      submitButton.textContent = 'Submit transaction';
+
+      if (!ok) {
+        banner.textContent = `${flattenErrorMessage(data)} (HTTP ${status})`;
+        banner.classList.add('visible', 'error');
+        return;
+      }
+
+      banner.textContent = `Transaction submitted successfully (status: ${data.status}).`;
+      banner.classList.add('visible', 'success');
+      document.getElementById('transaction-form').reset();
+      document.getElementById('recipient-field').style.display = 'none';
+      loadTransactions();
+    });
+  </script>
+</body>
+</html>

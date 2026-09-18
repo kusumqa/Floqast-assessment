@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Register - FinTechCo</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="/config.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="brand">FinTechCo</div>
+    <div class="card">
+      <h1 data-testid="page-title">Create your account</h1>
+      <p class="subtitle">Registration calls <code>POST /api/users</code>.</p>
+
+      <form id="register-form" novalidate>
+        <label for="name">Full name</label>
+        <input id="name" name="name" type="text" data-testid="name-input" autocomplete="name" />
+        <div class="field-error" id="name-error" data-testid="name-error"></div>
+
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" data-testid="email-input" autocomplete="email" />
+        <div class="field-error" id="email-error" data-testid="email-error"></div>
+
+        <label for="accountType">Account type</label>
+        <select id="accountType" name="accountType" data-testid="account-type-select">
+          <option value="basic">Basic</option>
+          <option value="premium">Premium</option>
+        </select>
+
+        <button type="submit" id="submit-button" data-testid="register-submit">Create account</button>
+      </form>
+
+      <div class="banner" id="form-banner" data-testid="form-banner"></div>
+      <p class="nav-links">Already have an account? <a href="transactions.html">Go to transactions</a></p>
+    </div>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    const form = document.getElementById('register-form');
+    const banner = document.getElementById('form-banner');
+    const nameError = document.getElementById('name-error');
+    const emailError = document.getElementById('email-error');
+
+    function resetErrors() {
+      [banner, nameError, emailError].forEach((el) => {
+        el.classList.remove('visible', 'error', 'success');
+        el.textContent = '';
+      });
+    }
+
+    function showBanner(type, message) {
+      banner.textContent = message;
+      banner.classList.add('visible', type);
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      resetErrors();
+
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const accountType = document.getElementById('accountType').value;
+
+      // Client-side validation mirrors server rules so users get instant feedback;
+      // the server remains the source of truth (see the API test suite).
+      let hasClientError = false;
+      if (name.length < 2) {
+        nameError.textContent = 'Name must be at least 2 characters.';
+        nameError.classList.add('visible');
+        hasClientError = true;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        emailError.textContent = 'Enter a valid email address.';
+        emailError.classList.add('visible');
+        hasClientError = true;
+      }
+      if (hasClientError) return;
+
+      const submitButton = document.getElementById('submit-button');
+      submitButton.disabled = true;
+      submitButton.textContent = 'Creating account…';
+
+      const { ok, status, data } = await apiRequest('/api/users', {
+        method: 'POST',
+        body: { name, email, accountType },
+      });
+
+      submitButton.disabled = false;
+      submitButton.textContent = 'Create account';
+
+      if (!ok) {
+        showBanner('error', flattenErrorMessage(data) + ` (HTTP ${status})`);
+        return;
+      }
+
+      saveSession({ userId: data.id, name: data.name, email: data.email, accountType: data.accountType, apiToken: data.apiToken });
+      showBanner('success', `Account created for ${data.name}. Redirecting to transactions…`);
+      form.style.display = 'none';
+
+      const continueBtn = document.createElement('button');
+      continueBtn.textContent = 'Continue to transactions';
+      continueBtn.setAttribute('data-testid', 'continue-to-transactions');
+      continueBtn.addEventListener('click', () => (window.location.href = 'transactions.html'));
+      banner.insertAdjacentElement('afterend', continueBtn);
+    });
+  </script>
+</body>
+</html>

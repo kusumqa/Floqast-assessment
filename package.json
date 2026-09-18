@@ -1,0 +1,52 @@
+{
+  "name": "fintech-qa-automation-framework",
+  "version": "1.0.0",
+  "description": "Test automation framework for a fintech microservices platform (User, Transaction, Notification services behind an API Gateway) - API and UI test suites built with Playwright + TypeScript.",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "mocks:start": "ts-node mock-services/start-all.ts",
+    "pretest": "npm run mocks:build:check",
+    "mocks:build:check": "tsc --noEmit -p tsconfig.json",
+    "test": "playwright test",
+    "test:api": "playwright test --project=api",
+    "test:ui": "playwright test --project=ui-chromium",
+    "test:dev": "cross-env TEST_ENV=dev playwright test",
+    "test:staging": "cross-env TEST_ENV=staging playwright test",
+    "test:prod": "cross-env TEST_ENV=prod playwright test",
+    "test:headed": "playwright test --project=ui-chromium --headed",
+    "test:report": "playwright show-report reports/html",
+    "codegen": "playwright codegen",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write ."
+  },
+  "keywords": [
+    "playwright",
+    "qa",
+    "test-automation",
+    "fintech",
+    "microservices"
+  ],
+  "author": "Kusuma Akula Nagaraj",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^10.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.16.0",
+    "@typescript-eslint/parser": "^7.16.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "uuid": "^9.0.1"
+  }
+}
